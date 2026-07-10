@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #0d9488;
+  --color-sidebar: #0f172a;
+  --color-sidebar-hover: #1e293b;
+  --color-sidebar-active: #0F2732;
+  --color-card: #ffffff;
+  --color-background: #f1f5f9;
+  --color-text-main: #0f172a;
+  --color-text-muted: #64748b;
+  --color-income: #16a34a;
+  --color-expense: #dc2626;
+
+  --font-family-sans: 'Inter', sans-serif;
+}
