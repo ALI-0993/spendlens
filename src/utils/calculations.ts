@@ -36,6 +36,13 @@ export const getMonthlyStats = (transactions: Transaction[], month: string) => {
     return Math.round(((curr - prev) / prev) * 100);
   };
 
+  // Whether the PREVIOUS month has any transactions at all — not whether
+  // its total happens to be ₹0. This is what lets the UI tell the
+  // difference between "there's no prior data to compare against" (e.g.
+  // this is the user's first tracked month) and "there IS prior data,
+  // and it genuinely totalled to zero."
+  const hasPreviousMonthData = previous.length > 0;
+
   return {
     totalSpent: curr.spent,
     totalIncome: curr.income,
@@ -43,7 +50,15 @@ export const getMonthlyStats = (transactions: Transaction[], month: string) => {
     topCategory: curr.topCategory,
     spentChange: pctChange(curr.spent, prev.spent),
     incomeChange: pctChange(curr.income, prev.income),
-    savedChange: pctChange(curr.saved, prev.saved),
+    // Saved/Net Balance is deliberately NOT a percentage. Percentages
+    // break down once a value can cross zero — e.g. going from -₹6,918
+    // to -₹5,063 is an IMPROVEMENT, but the standard % formula on
+    // negative numbers can flip sign and imply the opposite. A plain
+    // rupee difference stays correct no matter which side of ₹0
+    // either month falls on.
+    savedDifference: curr.saved - prev.saved,
+    previousMonthLabel: formatMonthLabel(prevMonth),
+    hasPreviousMonthData,
   };
 };
 
@@ -180,6 +195,18 @@ export const mergeTransactions = (
     addedCount: newOnes.length,
     duplicateCount,
   };
+};
+
+// Converts 'YYYY-MM' into a readable label like 'Jun 2026'. Used
+// anywhere a month needs to be displayed to the user, so this logic
+// lives in one place instead of being copy-pasted per component.
+export const formatMonthLabel = (month: string): string => {
+  const monthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  const [year, mon] = month.split('-').map(Number);
+  return `${monthNames[mon - 1]} ${year}`;
 };
 
 export const formatINR = (amount: number) =>

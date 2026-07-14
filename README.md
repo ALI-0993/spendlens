@@ -8,11 +8,11 @@
 
 ## Overview
 
-SpendLens takes raw bank/UPI statement exports (CSV) and turns them into an interactive dashboard — showing where your money actually goes, month over month, category by category. Built specifically with Indian banking and UPI transaction formats in mind (Swiggy, Zomato, Paytm, GPay, etc.).
+SpendLens takes raw bank/UPI statement exports (CSV and PDF) and turns them into an interactive dashboard — showing where your money actually goes, month over month, category by category. Built specifically with Indian banking and UPI transaction formats in mind (Swiggy, Zomato, Paytm, GPay, etc.).
 
 ## Features
 
-- 📂 **CSV Upload** — drag and drop bank/UPI statement exports
+- 📂 **CSV or PDF Upload** — drag and drop bank/UPI statement exports
 - 🏷️ **Auto-Categorization** — transactions sorted into spending categories automatically
 - 📊 **Interactive Dashboard** — visual breakdown of spending via charts
 - 💰 **INR-Native** — built around Indian currency formatting and transaction patterns
@@ -32,7 +32,7 @@ SpendLens takes raw bank/UPI statement exports (CSV) and turns them into an inte
 
 ## Project Status
 
-🚧 **Actively in development.** Currently in **Phase 1** — core CSV upload, parsing, categorization, and dashboard functionality.
+🚧 **Actively in development.** Currently in **Phase 1** — core CSV or PDF upload, parsing, categorization, and dashboard functionality.
 
 **Roadmap:**
 - [x] Phase 1 — CSV upload, parsing, categorization, dashboard & charts

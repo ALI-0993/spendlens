@@ -1,8 +1,9 @@
-import { useState } from 'react';
-   import { Search, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+   import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
    import AddTransactionPanel from '../components/transactions/AddTransactionPanel';
 import { useTransactionStore } from '../store/transactionStore';
 import { formatINR } from '../utils/calculations';
+import { type Transaction } from '../types';
 
 // Same color map as RecentTransactions.tsx — keeping it identical
 // across pages is what makes the app feel like one consistent product,
@@ -34,11 +35,35 @@ const TransactionsPage = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [currentPage, setCurrentPage] = useState(1);
      const [isPanelOpen, setIsPanelOpen] = useState(false);
+     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+     const deleteTransaction = useTransactionStore((state) => state.deleteTransaction);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   };
+
+  // Closes the open row's action menu when the user clicks anywhere outside
+  // it, or scrolls the page. The [data-txn-row] check lets clicks on the
+  // row itself (or its menu, since the menu lives inside the row) pass
+  // through without immediately closing what was just opened.
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('[data-txn-row]')) {
+        setOpenMenuId(null);
+      }
+    };
+    const handleScroll = () => setOpenMenuId(null);
+
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScroll, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, []);
 
   // Resets every filter back to its default value.
   // Used by the "Clear Filters" link.
@@ -106,6 +131,32 @@ const TransactionsPage = () => {
   const startIndex = (safePage - 1) * ITEMS_PER_PAGE;
   const paginatedTransactions = filteredTransactions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
+  // Builds a shortened page number list like [1, '...', 4, 5, 6, '...', 19]
+  // instead of showing every single page. Always keeps the first page,
+  // the last page, and a small window of 1 page on either side of
+  // wherever the user currently is — with '...' filling any gap bigger
+  // than that, so clicking through a huge dataset never means scanning
+  // past 15+ buttons.
+  const getPageNumbers = (current: number, total: number): (number | string)[] => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    const pages: (number | string)[] = [1];
+
+    if (current > 3) pages.push('...');
+
+    const start = Math.max(2, current - 1);
+    const end = Math.min(total - 1, current + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+
+    if (current < total - 2) pages.push('...');
+
+    pages.push(total);
+
+    return pages;
+  };
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -117,9 +168,11 @@ const TransactionsPage = () => {
           </p>
         </div>
         <button
-           onClick={() => setIsPanelOpen(true)}
-           className="flex items-center gap-1.5 text-sm font-semibold text-white px-4 py-2.5 rounded-lg transition-colors"
-           style={{ backgroundColor: '#3B82F6' }}
+           onClick={() => {
+             setEditingTransaction(null);
+             setIsPanelOpen(true);
+           }}
+           className="flex items-center gap-1.5 text-sm font-semibold text-white px-4 py-2.5 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] cursor-pointer transition-colors"
          >
            <Plus size={16} />
            Add Transaction
@@ -219,7 +272,9 @@ const TransactionsPage = () => {
           paginatedTransactions.map((txn) => (
             <div
               key={txn.id}
-              className="grid grid-cols-5 px-5 py-3.5 border-b border-gray-50 hover:bg-gray-50 transition-colors"
+              data-txn-row
+              onClick={() => setOpenMenuId((prev) => (prev === txn.id ? null : txn.id))}
+              className="relative grid grid-cols-5 px-5 py-3.5 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
             >
               {/* Merchant */}
               <div className="flex items-center gap-3">
@@ -269,6 +324,39 @@ const TransactionsPage = () => {
               >
                 {txn.type === 'credit' ? '+' : '-'}{formatINR(txn.amount)}
               </span>
+
+              {/* Edit/Delete dropdown — only rendered for the active row.
+                  stopPropagation keeps clicks inside it from bubbling up to
+                  the row's onClick, which would otherwise immediately
+                  toggle the menu closed again. */}
+              {openMenuId === txn.id && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute right-5 top-full mt-1 z-10 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden"
+                >
+                  <button
+                    onClick={() => {
+                      setEditingTransaction(txn);
+                      setIsPanelOpen(true);
+                      setOpenMenuId(null);
+                    }}
+                    className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <Pencil size={14} />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      deleteTransaction(txn.id);
+                      setOpenMenuId(null);
+                    }}
+                    className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer transition-colors"
+                  >
+                    <Trash2 size={14} />
+                    Delete
+                  </button>
+                </div>
+              )}
             </div>
           ))
         )}
@@ -288,20 +376,29 @@ const TransactionsPage = () => {
               Previous
             </button>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className="text-sm w-8 h-8 rounded-lg transition-colors"
-                style={
-                  page === safePage
-                    ? { backgroundColor: '#3B82F6', color: 'white' }
-                    : { backgroundColor: '#F3F4F6', color: '#6b7280' }
-                }
-              >
-                {page}
-              </button>
-            ))}
+            {getPageNumbers(safePage, totalPages).map((page, i) =>
+              page === '...' ? (
+                <span
+                  key={`ellipsis-${i}`}
+                  className="text-sm w-8 h-8 flex items-center justify-center text-gray-400"
+                >
+                  ···
+                </span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page as number)}
+                  className="text-sm w-8 h-8 rounded-lg cursor-pointer transition-colors"
+                  style={
+                    page === safePage
+                      ? { backgroundColor: '#3B82F6', color: 'white' }
+                      : { backgroundColor: '#F3F4F6', color: '#6b7280' }
+                  }
+                >
+                  {page}
+                </button>
+              )
+            )}
 
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
@@ -315,7 +412,11 @@ const TransactionsPage = () => {
       </div>
     <AddTransactionPanel
            isOpen={isPanelOpen}
-           onClose={() => setIsPanelOpen(false)}
+           onClose={() => {
+             setIsPanelOpen(false);
+             setEditingTransaction(null);
+           }}
+           editingTransaction={editingTransaction}
          />
        </div>
      );

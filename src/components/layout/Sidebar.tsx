@@ -32,7 +32,7 @@ const inactiveStyle = {
 
 const Sidebar = () => {
   return (
-    <aside className="w-56 min-h-screen bg-sidebar flex flex-col">
+    <aside className="w-56 h-screen bg-sidebar flex flex-col overflow-y-auto">
 
       {/* Logo */}
       <div className="px-6 py-5 border-b border-white/10">

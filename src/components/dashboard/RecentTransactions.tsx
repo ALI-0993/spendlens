@@ -32,8 +32,7 @@ const RecentTransactions = () => {
         <h2 className="text-base font-bold text-gray-900">Recent Transactions</h2>
         <button
           onClick={() => navigate('/transactions')}
-          className="text-xs font-semibold"
-          style={{ color: '#0d9488' }}
+          className="text-xs font-semibold text-[#0d9488] hover:text-[#0b6b62] cursor-pointer transition-colors"
         >
           View All
         </button>
