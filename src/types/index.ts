@@ -4,8 +4,16 @@ export interface Transaction {
   description: string;
   amount: number;
   type: 'credit' | 'debit';
-  category: string;
+  category: Category;
   merchant: string;
+  sourceFile?: string; // id of the UploadedFile this transaction came from, if any
+}
+
+export interface UploadedFile {
+  id: string;
+  name: string;
+  uploadedAt: string; // ISO timestamp
+  transactionCount: number;
 }
 
 export interface MonthlyStats {

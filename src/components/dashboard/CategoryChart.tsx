@@ -1,6 +1,7 @@
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { PieChart as PieChartIcon } from "lucide-react";
 import { useTransactionStore } from "../../store/transactionStore";
-import { formatINR } from "../../utils/calculations";
+import { formatINR, formatMonthLabel } from "../../utils/calculations";
 import { CATEGORY_COLORS } from "../../utils/categorize";
 import { useState } from "react";
 
@@ -43,10 +44,24 @@ const CategoryChart = () => {
           Spending by Category
         </h2>
         <span className="text-xs text-gray-400 border border-gray-200 rounded-full px-3 py-1">
-          This Month
+          {formatMonthLabel(selectedMonth)}
         </span>
       </div>
 
+      {data.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center py-10 text-center">
+          <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mb-3">
+            <PieChartIcon size={22} className="text-gray-300" />
+          </div>
+          <p className="text-sm font-semibold text-gray-700">
+            Not enough data yet
+          </p>
+          <p className="text-xs text-gray-400 mt-1 max-w-[220px]">
+            Upload a statement for this month to see your spending by category.
+          </p>
+        </div>
+      ) : (
+      <>
       {/* Donut + Legend */}
       <div className="flex items-center gap-4">
         {/* Donut */}
@@ -135,6 +150,8 @@ const CategoryChart = () => {
           {topCategory} is your highest spending category
         </span>
       </div>
+      </>
+      )}
     </div>
   );
 };

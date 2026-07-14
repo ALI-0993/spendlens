@@ -144,7 +144,7 @@ const InsightsPage = () => {
         <div className="flex items-center gap-2 mb-4">
           <h2 className="text-base font-bold text-gray-900">Spending Trend Analysis</h2>
           <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
-            Last 6 Months
+            Last {months.length} Month{months.length === 1 ? '' : 's'}
           </span>
         </div>
 
@@ -353,7 +353,7 @@ const InsightsPage = () => {
               Your overall spending rose <span className="font-semibold">{biggestMoMJump.changePercent}%</span> from{' '}
               <span className="font-semibold">{biggestMoMJump.from.label}</span> to{' '}
               <span className="font-semibold">{biggestMoMJump.to.label}</span> — the sharpest month-to-month
-              increase across the last 6 months.
+              increase across the last {months.length} months.
             </p>
           </div>
 

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, CheckCircle2, AlertCircle, Sparkles, PieChart, ShieldCheck, Lock, HelpCircle } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertCircle, Sparkles, PieChart, ShieldCheck, Lock, HelpCircle, Trash2, AlertTriangle } from 'lucide-react';
+import { type UploadedFile } from '../types';
 import { parseCSVFile, parseExcelFile } from '../utils/parseCSV';
 import { parsePDFFile } from '../utils/parsePDF';
 import { getMostRecentMonth, mergeTransactions } from '../utils/calculations';
@@ -13,8 +14,12 @@ const UploadPage = () => {
   const transactions = useTransactionStore((state) => state.transactions);
   const setTransactions = useTransactionStore((state) => state.setTransactions);
   const setSelectedMonth = useTransactionStore((state) => state.setSelectedMonth);
+  const uploadedFiles = useTransactionStore((state) => state.uploadedFiles);
+  const addUploadedFile = useTransactionStore((state) => state.addUploadedFile);
+  const deleteUploadedFile = useTransactionStore((state) => state.deleteUploadedFile);
 
   const [isDragging, setIsDragging] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<UploadedFile | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [successInfo, setSuccessInfo] = useState<{
@@ -54,13 +59,26 @@ const UploadPage = () => {
         return;
       }
 
+     // Tag every transaction from this upload with a shared file id,
+      // generated once per upload. This is what lets us later delete
+      // exactly this file's transactions without touching anything else.
+      const fileId = crypto.randomUUID();
+      const taggedTransactions = parsedTransactions.map((t) => ({ ...t, sourceFile: fileId }));
+
       // Merge the newly parsed transactions into whatever's already in
       // the store, skipping anything that looks like a duplicate of an
       // existing transaction — rather than replacing the dataset
       // outright, which would silently throw away everything from
       // previous uploads.
-      const { merged, addedCount, duplicateCount } = mergeTransactions(transactions, parsedTransactions);
+      const { merged, addedCount, duplicateCount } = mergeTransactions(transactions, taggedTransactions);
       setTransactions(merged);
+
+      addUploadedFile({
+        id: fileId,
+        name: file.name,
+        uploadedAt: new Date().toISOString(),
+        transactionCount: addedCount,
+      });
 
       // Point selectedMonth at the most recent month in the FULL merged
       // dataset, not just the newly uploaded file — otherwise uploading
@@ -270,6 +288,55 @@ const UploadPage = () => {
               Your data is 100% secure. We never store your bank credentials or sell your data.
             </p>
           </div>
+
+          {/* Uploaded files list */}
+          {uploadedFiles.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <p className="text-sm font-bold text-gray-900 mb-3">Uploaded Files</p>
+              <div className="flex flex-col divide-y divide-gray-50">
+                {uploadedFiles.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: '#EFF6FF' }}
+                      >
+                        <FileText size={16} style={{ color: '#3B82F6' }} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
+                        <p className="text-xs mt-0.5">
+                          {file.transactionCount === 0 ? (
+                            <span className="font-medium text-amber-600">Already uploaded — 0 new transactions</span>
+                          ) : (
+                            <span className="text-gray-400">
+                              {file.transactionCount} transaction{file.transactionCount === 1 ? '' : 's'} added
+                            </span>
+                          )}
+                          <span className="text-gray-400">
+                            {' '}·{' '}
+                            {new Date(file.uploadedAt).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFileToDelete(file)}
+                      className="text-gray-400 hover:text-red-500 cursor-pointer transition-colors shrink-0 ml-3"
+                      aria-label={`Delete ${file.name}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar column */}
@@ -327,6 +394,58 @@ const UploadPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {fileToDelete && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+          onClick={() => setFileToDelete(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6"
+          >
+            <div
+              className="w-11 h-11 rounded-full flex items-center justify-center mb-4"
+              style={{ backgroundColor: '#FEF2F2' }}
+            >
+              <AlertTriangle size={20} className="text-red-500" />
+            </div>
+
+            <h3 className="text-base font-bold text-gray-900 mb-1.5">
+              Delete this file?
+            </h3>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              This will permanently remove{' '}
+              <span className="font-semibold text-gray-700">"{fileToDelete.name}"</span> and{' '}
+              <span className="font-semibold text-gray-700">
+                {fileToDelete.transactionCount} transaction{fileToDelete.transactionCount === 1 ? '' : 's'}
+              </span>{' '}
+              imported from it. This cannot be undone.
+            </p>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setFileToDelete(null)}
+                className="flex-1 text-sm font-semibold text-gray-600 border border-gray-200 rounded-lg py-2.5 hover:bg-gray-50 cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteUploadedFile(fileToDelete.id);
+                  setFileToDelete(null);
+                }}
+                className="flex-1 text-sm font-semibold text-white rounded-lg py-2.5 bg-red-500 hover:bg-red-600 cursor-pointer transition-colors"
+              >
+                Delete File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

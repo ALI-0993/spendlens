@@ -1,5 +1,6 @@
 import { CreditCard, Wallet, PiggyBank, UtensilsCrossed } from "lucide-react";
 import SummaryCard from "../components/dashboard/SummaryCard";
+import MonthSelector from "../components/dashboard/MonthSelector";
 import { useTransactionStore } from "../store/transactionStore";
 import { getMonthlyStats, formatINR } from "../utils/calculations";
 import CashFlowChart from "../components/dashboard/CashFlowChart";
@@ -17,6 +18,7 @@ const DashboardPage = () => {
       value: formatINR(stats.totalSpent),
       subtitle: `${stats.spentChange >= 0 ? "+" : ""}${stats.spentChange}% from last month`,
       change: stats.spentChange,
+      hasPreviousMonthData: stats.hasPreviousMonthData,
       icon: CreditCard,
       iconBg: "#FEE2E2",
       accentColor: "#EF4444",
@@ -26,6 +28,7 @@ const DashboardPage = () => {
       value: formatINR(stats.totalIncome),
       subtitle: `${stats.incomeChange >= 0 ? "+" : ""}${stats.incomeChange}% from last month`,
       change: stats.incomeChange,
+      hasPreviousMonthData: stats.hasPreviousMonthData,
       icon: Wallet,
       iconBg: "#DCFCE7",
       accentColor: "#16A34A",
@@ -35,6 +38,7 @@ const DashboardPage = () => {
       value: formatINR(stats.totalSaved),
       subtitle: `${stats.savedChange >= 0 ? "+" : ""}${stats.savedChange}% from last month`,
       change: stats.savedChange,
+      hasPreviousMonthData: stats.hasPreviousMonthData,
       icon: PiggyBank,
       iconBg: "#DBEAFE",
       accentColor: "#2563EB",
@@ -52,11 +56,14 @@ const DashboardPage = () => {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-text-main">Dashboard</h1>
-        <p className="text-text-muted mt-1 text-sm">
-          Track your monthly spending and financial habits
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-main">Dashboard</h1>
+          <p className="text-text-muted mt-1 text-sm">
+            Track your monthly spending and financial habits
+          </p>
+        </div>
+        <MonthSelector />
       </div>
 
       {/* Summary Cards */}

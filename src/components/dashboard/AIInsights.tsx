@@ -9,6 +9,8 @@ const AIInsights = () => {
   const current = transactions.filter(
     (t) => t.date.startsWith(selectedMonth) && t.type === 'debit'
   );
+
+  const hasData = current.length > 0;
   const categoryMap: Record<string, number> = {};
   current.forEach((t) => {
     categoryMap[t.category] = (categoryMap[t.category] || 0) + t.amount;
@@ -32,7 +34,7 @@ const AIInsights = () => {
     },
     {
       title: `High ${topCategory?.[0] ?? ''} Spend`,
-      body: `${topCategory?.[0]} makes up ${topCategoryPercent}% of your total spend at ${formatINR(topCategory?.[1] ?? 0)}. Consider if this aligns with your budget.`,
+      body: `${topCategory?.[0] ?? 'This category'} makes up ${topCategoryPercent}% of your total spend at ${formatINR(topCategory?.[1] ?? 0)}. Consider if this aligns with your budget.`,
       color: '#6366F1',
     },
     {
@@ -52,6 +54,16 @@ const AIInsights = () => {
       </div>
 
       {/* Insights list */}
+      {!hasData ? (
+        <div className="px-5 py-10 flex flex-col items-center text-center">
+          <p className="text-sm font-semibold text-gray-700">
+            Not enough data yet
+          </p>
+          <p className="text-xs text-gray-400 mt-1 max-w-[220px]">
+            Upload a statement for this month to get personalized insights.
+          </p>
+        </div>
+      ) : (
       <div className="flex flex-col divide-y divide-gray-50">
         {insights.map((insight) => (
           <div key={insight.title} className="px-5 py-4 flex gap-3">
@@ -66,6 +78,7 @@ const AIInsights = () => {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 };

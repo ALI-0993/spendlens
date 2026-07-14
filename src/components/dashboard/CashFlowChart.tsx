@@ -61,7 +61,7 @@ const CashFlowChart = () => {
         </div>
         <div className="flex flex-col items-end gap-2">
           <span className="text-xs text-gray-400 border border-gray-200 rounded-full px-3 py-1">
-            This Month
+            {monthNames[Number(selectedMonth.split('-')[1]) - 1]} {selectedMonth.split('-')[0]}
           </span>
           <div className="flex items-center gap-2">
             <div
