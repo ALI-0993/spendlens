@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { type Transaction } from '../types';
-import { detectCategory } from './categorize';
+import { detectCategoryMatched } from './categorize';
 
 // One raw row, as Papa Parse gives it to us — every value is a string,
 // since CSV files have no concept of "this column is a number".
@@ -71,7 +71,7 @@ const cleanAmount = (raw: string): number => {
 // data. This is the one place that knows how to interpret a row — both
 // the CSV reader and the Excel reader call this, so they can never
 // disagree on what counts as a valid transaction.
-const buildTransactionFromRow = (row: RawRow): Transaction | null => {
+const buildTransactionFromRow = (row: RawRow): { transaction: Transaction; matched: boolean } | null => {
   const date = pick(row, ['Date', 'date']);
   const description = pick(row, ['Description', 'Narration', 'Particulars', 'description']);
 
@@ -106,17 +106,93 @@ const buildTransactionFromRow = (row: RawRow): Transaction | null => {
   }
 
   const merchant = description;
-  const category = detectCategory(merchant, type);
+  const { category, matched } = detectCategoryMatched(merchant, type);
 
   return {
-    id: crypto.randomUUID(),
-    date,
-    description,
-    amount,
-    type,
-    category,
-    merchant,
+    transaction: {
+      id: crypto.randomUUID(),
+      date,
+      description,
+      amount,
+      type,
+      category,
+      merchant,
+    },
+    matched,
   };
+};
+
+// After the rule-based pass, ask AI to categorize any transactions the
+// rules couldn't confidently classify — but as ONE batched request for
+// the whole statement, not one request per transaction, so a 200-row
+// statement doesn't fire 200 separate API calls.
+// Sends one chunk of unique merchants to the batch endpoint and returns
+// a merchant|type -> category map for whatever it successfully answered.
+const categorizeChunk = async (
+  chunk: { merchant: string; type: 'debit' | 'credit' }[]
+): Promise<Map<string, string>> => {
+  const resultMap = new Map<string, string>();
+  const itemsWithIds = chunk.map((item, i) => ({ id: i, ...item }));
+
+  try {
+    const response = await fetch('/api/categorize-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: itemsWithIds }),
+    });
+    if (!response.ok) return resultMap;
+
+    const data = await response.json();
+    for (const r of data.results ?? []) {
+      if (r.category) resultMap.set(`${r.merchant.toLowerCase()}|${r.type}`, r.category);
+    }
+  } catch {
+    // Network failure, timeout, etc. — this chunk's transactions simply
+    // keep their rule-based fallback categories.
+  }
+
+  return resultMap;
+};
+
+export const applyAICategorization = async (
+  transactions: Transaction[],
+  unmatchedIndices: number[]
+): Promise<void> => {
+  // Dedupe by merchant+type — a statement often repeats the same
+  // merchant many times (e.g. "Zomato" ten times), no need to ask
+  // the AI about the same one twice.
+  const uniqueMap = new Map<string, { merchant: string; type: 'debit' | 'credit' }>();
+  for (const i of unmatchedIndices) {
+    const t = transactions[i];
+    const key = `${t.merchant.toLowerCase()}|${t.type}`;
+    if (!uniqueMap.has(key)) uniqueMap.set(key, { merchant: t.merchant, type: t.type });
+  }
+
+  const allItems = Array.from(uniqueMap.values());
+  if (allItems.length === 0) return;
+
+  // Smaller chunks (15 at a time) instead of one big batch — this keeps
+  // each individual prompt short enough that the model reliably returns
+  // every item correctly matched by id, and lets us cover a statement
+  // with FAR more than 50 unique merchants (in parallel chunks) instead
+  // of silently dropping everything past a single hard cap.
+  const CHUNK_SIZE = 15;
+  const chunks: { merchant: string; type: 'debit' | 'credit' }[][] = [];
+  for (let i = 0; i < allItems.length; i += CHUNK_SIZE) {
+    chunks.push(allItems.slice(i, i + CHUNK_SIZE));
+  }
+
+  const chunkResults = await Promise.all(chunks.map(categorizeChunk));
+  const resultMap = new Map<string, string>();
+  for (const map of chunkResults) {
+    for (const [key, category] of map) resultMap.set(key, category);
+  }
+
+  for (const i of unmatchedIndices) {
+    const t = transactions[i];
+    const aiCategory = resultMap.get(`${t.merchant.toLowerCase()}|${t.type}`);
+    if (aiCategory) transactions[i] = { ...t, category: aiCategory };
+  }
 };
 
 export interface ParseResult {
@@ -131,17 +207,23 @@ export const parseCSVFile = (file: File): Promise<ParseResult> => {
     Papa.parse<RawRow>(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
+      complete: async (results) => {
         const transactions: Transaction[] = [];
+        const unmatchedIndices: number[] = [];
         let skippedCount = 0;
 
         for (const row of results.data) {
-          const transaction = buildTransactionFromRow(row);
-          if (transaction) {
-            transactions.push(transaction);
+          const result = buildTransactionFromRow(row);
+          if (result) {
+            transactions.push(result.transaction);
+            if (!result.matched) unmatchedIndices.push(transactions.length - 1);
           } else {
             skippedCount++;
           }
+        }
+
+        if (unmatchedIndices.length > 0) {
+          await applyAICategorization(transactions, unmatchedIndices);
         }
 
         resolve({ transactions, skippedCount });
@@ -175,7 +257,7 @@ export const parseExcelFile = (file: File): Promise<ParseResult> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const data = event.target?.result;
         // cellDates: true makes SheetJS hand us real Date objects for date
@@ -201,6 +283,7 @@ export const parseExcelFile = (file: File): Promise<ParseResult> => {
         const dataRows = allRows.slice(headerRowIndex + 1);
 
         const transactions: Transaction[] = [];
+        const unmatchedIndices: number[] = [];
         let skippedCount = 0;
 
         for (const rawRow of dataRows) {
@@ -215,12 +298,17 @@ export const parseExcelFile = (file: File): Promise<ParseResult> => {
             (rowObject as Record<string, CellValue>)[header] = rawRow[index] as CellValue;
           });
 
-          const transaction = buildTransactionFromRow(rowObject);
-          if (transaction) {
-            transactions.push(transaction);
+          const result = buildTransactionFromRow(rowObject);
+          if (result) {
+            transactions.push(result.transaction);
+            if (!result.matched) unmatchedIndices.push(transactions.length - 1);
           } else {
             skippedCount++;
           }
+        }
+
+        if (unmatchedIndices.length > 0) {
+          await applyAICategorization(transactions, unmatchedIndices);
         }
 
         resolve({ transactions, skippedCount });

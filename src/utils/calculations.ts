@@ -83,6 +83,12 @@ export const getMonthlyTrend = (transactions: Transaction[], months: string[]) =
     return { month, label, total };
   });
 
+  // Guard against an empty months list (e.g. a brand-new user with
+  // zero uploaded transactions) so this never crashes the Insights page.
+  if (trendData.length === 0) {
+    return { trendData, average: 0, highest: null, lowest: null };
+  }
+
   // Average across all the months we just calculated
   const average = Math.round(
     trendData.reduce((sum, m) => sum + m.total, 0) / trendData.length

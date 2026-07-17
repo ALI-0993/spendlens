@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { detectCategory, CATEGORY_COLORS } from '../../utils/categorize';
+import { detectCategoryMatched, CATEGORY_COLORS } from '../../utils/categorize';
 import { useTransactionStore } from '../../store/transactionStore';
 import { type Transaction } from '../../types';
 
@@ -50,7 +50,55 @@ const addTransaction = useTransactionStore((state) => state.addTransaction);
   // Auto-detected category, recalculated whenever merchant or type changes.
   // This is NOT separate state — it's derived directly from existing state,
   // so it can never get "out of sync" the way a separate useState could.
-  const detectedCategory = detectCategory(merchant, type);
+  const ruleResult = detectCategoryMatched(merchant, type);
+
+  // AI category, only ever populated when the rule-based match above was
+  // a genuine guess (matched: false) — no point spending an API call
+  // re-confirming something the keyword list already knows for certain.
+  const [aiCategory, setAiCategory] = useState<string | null>(null);
+  const [aiCategoryLoading, setAiCategoryLoading] = useState(false);
+
+  useEffect(() => {
+    const trimmed = merchant.trim();
+
+    // Reset whenever the rules already have a confident answer, or the
+    // merchant name is too short to mean anything yet.
+    if (ruleResult.matched || trimmed.length < 3) {
+      setAiCategory(null);
+      return;
+    }
+
+    // Debounce: wait 600ms after typing pauses before calling the AI, so
+    // we're not firing a request on every single keystroke.
+    const timer = setTimeout(() => {
+      setAiCategoryLoading(true);
+      fetch('/api/categorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merchant: trimmed, type }),
+      })
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((data) => {
+          // Only trust the AI's answer if it's exactly one of our real
+          // categories — anything else (typo, invented category, empty
+          // response) is treated the same as a failure.
+          if (data.category && CATEGORY_COLORS[data.category]) {
+            setAiCategory(data.category);
+          } else {
+            setAiCategory(null);
+          }
+        })
+        .catch(() => setAiCategory(null))
+        .finally(() => setAiCategoryLoading(false));
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [merchant, type, ruleResult.matched]);
+
+  // Final category shown and saved: AI's answer if we have one, otherwise
+  // the rule-based guess — which is exactly what would've shown before
+  // AI existed at all, so nothing gets worse if AI is unavailable.
+  const detectedCategory = aiCategory ?? ruleResult.category;
 
   // Runs when "Add Transaction" is clicked. Validates the minimum required
   // fields, builds a full Transaction object, saves it to the store, then
@@ -270,7 +318,10 @@ const addTransaction = useTransactionStore((state) => state.addTransaction);
               but adds dropdown-override complexity we don't need on day one. */}
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Category <span className="text-gray-300 font-normal">(auto-detected)</span>
+              Category{' '}
+              <span className="text-gray-300 font-normal">
+                {aiCategoryLoading ? '(checking with AI...)' : aiCategory ? '(AI-detected)' : '(auto-detected)'}
+              </span>
             </label>
             <div className="mt-1.5">
               <span

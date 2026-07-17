@@ -1,7 +1,8 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { type Transaction } from '../types';
-import { detectCategory } from './categorize';
+import { detectCategoryMatched } from './categorize';
+import { applyAICategorization } from './parseCSV';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -44,6 +45,7 @@ export const parseGooglePayFile = async (file: File): Promise<ParseResult> => {
   const doc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
   const transactions: Transaction[] = [];
+  const unmatchedIndices: number[] = [];
   let skippedCount = 0;
 
   for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
@@ -102,7 +104,7 @@ export const parseGooglePayFile = async (file: File): Promise<ParseResult> => {
       const amount = parseFloat(amountStr!.replace(/[₹,]/g, ''));
       const type: 'debit' | 'credit' = isReceived ? 'credit' : 'debit';
       const date = convertDate(dateStr);
-      const category = detectCategory(merchant, type);
+      const { category, matched } = detectCategoryMatched(merchant, type);
 
       transactions.push({
         id: crypto.randomUUID(),
@@ -113,9 +115,14 @@ export const parseGooglePayFile = async (file: File): Promise<ParseResult> => {
         category,
         merchant,
       });
+      if (!matched) unmatchedIndices.push(transactions.length - 1);
 
       i = j + 1; // move past the amount we just consumed
     }
+  }
+
+  if (unmatchedIndices.length > 0) {
+    await applyAICategorization(transactions, unmatchedIndices);
   }
 
   return { transactions, skippedCount };

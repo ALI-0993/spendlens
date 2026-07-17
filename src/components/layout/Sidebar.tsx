@@ -4,8 +4,6 @@ import {
   ArrowLeftRight,
   Lightbulb,
   Upload,
-  Settings,
-  HelpCircle,
 } from 'lucide-react';
 
 const navItems = [
@@ -13,11 +11,6 @@ const navItems = [
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
   { to: '/insights', icon: Lightbulb, label: 'Insights' },
   { to: '/upload', icon: Upload, label: 'Upload' },
-];
-
-const bottomItems = [
-  { to: '/settings', icon: Settings, label: 'Settings' },
-  { to: '/support', icon: HelpCircle, label: 'Support' },
 ];
 
 const activeStyle = {
@@ -66,32 +59,9 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      {/* Bottom nav */}
-      <div className="px-3 py-4 border-t border-white/10 space-y-1">
-        {bottomItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            style={({ isActive }) => isActive ? activeStyle : inactiveStyle}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'text-white'
-                  : 'text-white/60 hover:bg-sidebar-hover hover:text-white'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Icon size={18} style={{ color: isActive ? 'white' : undefined }} />
-                {label}
-              </>
-            )}
-          </NavLink>
-        ))}
-
-        {/* User profile */}
-        <div className="flex items-center gap-3 px-3 py-2.5 mt-2">
+      {/* User profile */}
+      <div className="px-3 py-4 border-t border-white/10">
+        <div className="flex items-center gap-3 px-3 py-2.5">
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
             style={{ backgroundColor: '#0d9488' }}

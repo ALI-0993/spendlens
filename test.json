@@ -1,0 +1,7 @@
+{
+  "income": 25000,
+  "expenses": 50000,
+  "topCategories": [
+    { "name": "Food & Dining", "amount": 50000 }
+  ]
+}

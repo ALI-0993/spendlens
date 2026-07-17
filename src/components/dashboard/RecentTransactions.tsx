@@ -17,7 +17,7 @@ const RecentTransactions = () => {
         new Date(b.date).getTime() -
         new Date(a.date).getTime()
     )
-    .slice(0, 5);
+    .slice(0, 6);
 }, [transactions, selectedMonth]);
 
   const formatDate = (dateStr: string) => {

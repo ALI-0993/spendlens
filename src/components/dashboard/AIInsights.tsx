@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useTransactionStore } from '../../store/transactionStore';
 import { getMonthlyStats, formatINR } from '../../utils/calculations';
 
@@ -46,6 +47,54 @@ const AIInsights = () => {
     },
   ];
 
+  // AI-generated insights fetched from our /api/insights endpoint.
+  // We keep the rule-based `insights` array above as a fallback —
+  // if the AI call is loading, errors, or the person has no internet,
+  // the panel still shows something useful instead of breaking.
+  const [aiInsights, setAiInsights] = useState<{ title: string; message: string }[] | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(false);
+
+  useEffect(() => {
+    if (!hasData) return;
+
+    const summary = {
+      income: stats.totalIncome,
+      expenses: stats.totalSpent,
+      saved: stats.totalSaved,
+      savingsRatePercent: savingsRate,
+      hasPreviousMonthData: stats.hasPreviousMonthData,
+      spentChangePercent: stats.hasPreviousMonthData ? stats.spentChange : null,
+      incomeChangePercent: stats.hasPreviousMonthData ? stats.incomeChange : null,
+      allCategories: sorted.map(([name, amount]) => ({
+        name,
+        amount,
+        percentOfSpend: Math.round((amount / stats.totalSpent) * 100),
+      })),
+      largestSingleTransactions: current
+        .slice()
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 3)
+        .map((t) => ({ merchant: t.merchant, amount: t.amount, category: t.category })),
+    };
+
+    setAiLoading(true);
+    setAiError(false);
+
+    fetch('/api/insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...summary, insightCount: 3 }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('AI request failed');
+        return res.json();
+      })
+      .then((data) => setAiInsights(data))
+      .catch(() => setAiError(true))
+      .finally(() => setAiLoading(false));
+  }, [selectedMonth, hasData, stats.totalSpent]);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col">
       {/* Header */}
@@ -65,18 +114,32 @@ const AIInsights = () => {
         </div>
       ) : (
       <div className="flex flex-col divide-y divide-gray-50">
-        {insights.map((insight) => (
-          <div key={insight.title} className="px-5 py-4 flex gap-3">
-            <div
-              className="w-2 h-2 rounded-full mt-1.5 shrink-0"
-              style={{ backgroundColor: insight.color }}
-            />
-            <div>
-              <p className="text-sm font-semibold text-gray-800">{insight.title}</p>
-              <p className="text-xs text-gray-500 mt-1 leading-relaxed">{insight.body}</p>
-            </div>
-          </div>
-        ))}
+        {aiLoading && (
+          <div className="px-5 py-4 text-xs text-gray-400">Thinking...</div>
+        )}
+        {!aiLoading && aiInsights && !aiError
+          ? aiInsights.map((insight) => (
+              <div key={insight.title} className="px-5 py-4 flex gap-3">
+                <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-indigo-500" />
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">{insight.title}</p>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">{insight.message}</p>
+                </div>
+              </div>
+            ))
+          : !aiLoading &&
+            insights.map((insight) => (
+              <div key={insight.title} className="px-5 py-4 flex gap-3">
+                <div
+                  className="w-2 h-2 rounded-full mt-1.5 shrink-0"
+                  style={{ backgroundColor: insight.color }}
+                />
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">{insight.title}</p>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">{insight.body}</p>
+                </div>
+              </div>
+            ))}
       </div>
       )}
     </div>

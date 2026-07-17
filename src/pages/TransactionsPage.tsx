@@ -16,6 +16,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Entertainment': '#EF4444',
   'Others': '#8B5CF6',
   'Income': '#16A34A',
+  'Transfers': '#0EA5E9',
 };
 
 // Shared Tailwind classes for every dropdown, so they all look identical
