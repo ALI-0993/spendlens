@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { TrendingUp, ArrowUp, ArrowDown, Sparkles, AlertTriangle, Lightbulb, PiggyBank, BarChart3, UtensilsCrossed, ShoppingBag, Receipt, Car, Film, MoreHorizontal, ArrowLeftRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useTransactionStore } from '../store/transactionStore';
 import { getMonthlyTrend, getCategoryComparison, getRecentMonths, formatINR } from '../utils/calculations';
 
@@ -127,6 +128,64 @@ const InsightsPage = () => {
     .filter((t) => t.date.startsWith(currentMonth) && t.type === 'debit')
     .reduce((sum, t) => sum + t.amount, 0);
   const savingsRate = currentIncome > 0 ? Math.round(((currentIncome - currentSpent) / currentIncome) * 100) : 0;
+
+  // AI-generated insights for this page, built from the SAME computed
+  // values the rule-based cards below already use — no duplicate logic,
+  // just repackaged into a compact summary for the API.
+  const [aiInsights, setAiInsights] = useState<{ title: string; message: string }[] | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(false);
+
+  useEffect(() => {
+    const summary = {
+      income: currentIncome,
+      expenses: currentSpent,
+      savingsRatePercent: savingsRate,
+      biggestCategoryIncrease: biggestIncrease
+        ? {
+            category: biggestIncrease.category,
+            changePercent: biggestIncrease.change,
+            current: biggestIncrease.current,
+            previous: biggestIncrease.previous,
+            rupeeDifference: biggestIncrease.current - biggestIncrease.previous,
+          }
+        : null,
+      biggestCategoryDecrease: decreasedCategory
+        ? {
+            category: decreasedCategory.category,
+            changePercent: decreasedCategory.change,
+          }
+        : null,
+      allCategories: categoryComparison.map((c) => ({
+        name: c.category,
+        current: c.current,
+        previous: c.previous,
+        changePercent: c.change,
+      })),
+      biggestMonthlyJump: {
+        fromMonth: biggestMoMJump.from.label,
+        toMonth: biggestMoMJump.to.label,
+        changePercent: biggestMoMJump.changePercent,
+      },
+      monthlyTrend: trendData.map((m) => ({ month: m.label, total: m.total })),
+    };
+
+    setAiLoading(true);
+    setAiError(false);
+
+    fetch('/api/insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...summary, insightCount: 4 }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('AI request failed');
+        return res.json();
+      })
+      .then((data) => setAiInsights(data))
+      .catch(() => setAiError(true))
+      .finally(() => setAiLoading(false));
+  }, [currentMonth]);
 
   return (
     <div className="p-6">
@@ -324,80 +383,104 @@ const InsightsPage = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          {/* Insight 1 — Biggest category increase */}
-          <div className="border-l-4 border-red-400 bg-red-50/40 rounded-r-lg p-4">
-            <div className="flex items-center gap-2 mb-1.5">
-              <AlertTriangle size={16} className="text-red-500" />
-              <p className="text-sm font-bold text-gray-900">Overspending Alert</p>
-            </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              {biggestIncrease ? (
-                <>
-                  You spent <span className="font-semibold">{formatINR(biggestIncrease.current - biggestIncrease.previous)} more</span> on{' '}
-                  <span className="font-semibold">{biggestIncrease.category}</span> compared to last month —
-                  a {biggestIncrease.change}% increase. This is your largest category jump this month.
-                </>
-              ) : (
-                'No category spending to compare yet.'
-              )}
-            </p>
-          </div>
+          {aiLoading && (
+            <div className="col-span-2 text-xs text-gray-400 py-6 text-center">Thinking...</div>
+          )}
 
-          {/* Insight 2 — Biggest MoM jump in overall spending */}
-          <div className="border-l-4 border-amber-400 bg-amber-50/40 rounded-r-lg p-4">
-            <div className="flex items-center gap-2 mb-1.5">
-              <TrendingUp size={16} className="text-amber-500" />
-              <p className="text-sm font-bold text-gray-900">Biggest Monthly Jump</p>
-            </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Your overall spending rose <span className="font-semibold">{biggestMoMJump.changePercent}%</span> from{' '}
-              <span className="font-semibold">{biggestMoMJump.from.label}</span> to{' '}
-              <span className="font-semibold">{biggestMoMJump.to.label}</span> — the sharpest month-to-month
-              increase across the last {months.length} months.
-            </p>
-          </div>
+          {!aiLoading && aiInsights && !aiError ? (
+            aiInsights.slice(0, 4).map((insight, i) => {
+              // Cycle through the same 4 colour/icon pairs used before,
+              // just now driven by AI content instead of fixed slots.
+              const styles = [
+                { border: 'border-red-400', bg: 'bg-red-50/40', icon: AlertTriangle, iconColor: 'text-red-500' },
+                { border: 'border-amber-400', bg: 'bg-amber-50/40', icon: TrendingUp, iconColor: 'text-amber-500' },
+                { border: 'border-green-400', bg: 'bg-green-50/40', icon: Lightbulb, iconColor: 'text-green-500' },
+                { border: 'border-blue-400', bg: 'bg-blue-50/40', icon: PiggyBank, iconColor: 'text-blue-500' },
+              ][i % 4];
+              const Icon = styles.icon;
+              return (
+                <div key={insight.title} className={`border-l-4 ${styles.border} ${styles.bg} rounded-r-lg p-4`}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Icon size={16} className={styles.iconColor} />
+                    <p className="text-sm font-bold text-gray-900">{insight.title}</p>
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed">{insight.message}</p>
+                </div>
+              );
+            })
+          ) : !aiLoading ? (
+            <>
+              {/* Fallback: rule-based insights, shown if the AI call fails */}
+              <div className="border-l-4 border-red-400 bg-red-50/40 rounded-r-lg p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <AlertTriangle size={16} className="text-red-500" />
+                  <p className="text-sm font-bold text-gray-900">Overspending Alert</p>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  {biggestIncrease ? (
+                    <>
+                      You spent <span className="font-semibold">{formatINR(biggestIncrease.current - biggestIncrease.previous)} more</span> on{' '}
+                      <span className="font-semibold">{biggestIncrease.category}</span> compared to last month —
+                      a {biggestIncrease.change}% increase. This is your largest category jump this month.
+                    </>
+                  ) : (
+                    'No category spending to compare yet.'
+                  )}
+                </p>
+              </div>
 
-          {/* Insight 3 — Positive trend, only if one genuinely exists.
-              If no category decreased, we honestly point to the steadiest
-              one instead of inventing a decrease that didn't happen. */}
-          <div className="border-l-4 border-green-400 bg-green-50/40 rounded-r-lg p-4">
-            <div className="flex items-center gap-2 mb-1.5">
-              <Lightbulb size={16} className="text-green-500" />
-              <p className="text-sm font-bold text-gray-900">
-                {decreasedCategory ? 'Positive Trend' : 'Steady Category'}
-              </p>
-            </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              {decreasedCategory ? (
-                <>
-                  <span className="font-semibold">{decreasedCategory.category}</span> spending decreased by{' '}
-                  <span className="font-semibold">{Math.abs(decreasedCategory.change)}%</span> compared to last month.
-                  Great job keeping it under control.
-                </>
-              ) : flatCategory ? (
-                <>
-                  Every category rose this month, but <span className="font-semibold">{flatCategory.category}</span>{' '}
-                  held exactly steady at {formatINR(flatCategory.current)} — no increase there at least.
-                </>
-              ) : (
-                <>All categories increased this month — worth reviewing your budget across the board.</>
-              )}
-            </p>
-          </div>
+              <div className="border-l-4 border-amber-400 bg-amber-50/40 rounded-r-lg p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <TrendingUp size={16} className="text-amber-500" />
+                  <p className="text-sm font-bold text-gray-900">Biggest Monthly Jump</p>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Your overall spending rose <span className="font-semibold">{biggestMoMJump.changePercent}%</span> from{' '}
+                  <span className="font-semibold">{biggestMoMJump.from.label}</span> to{' '}
+                  <span className="font-semibold">{biggestMoMJump.to.label}</span> — the sharpest month-to-month
+                  increase across the last {months.length} months.
+                </p>
+              </div>
 
-          {/* Insight 4 — Savings rate */}
-          <div className="border-l-4 border-blue-400 bg-blue-50/40 rounded-r-lg p-4">
-            <div className="flex items-center gap-2 mb-1.5">
-              <PiggyBank size={16} className="text-blue-500" />
-              <p className="text-sm font-bold text-gray-900">Savings Rate</p>
-            </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              You saved <span className="font-semibold">{savingsRate}%</span> of your income this month.{' '}
-              {savingsRate >= 20
-                ? "That's a healthy savings habit — keep it up."
-                : 'Try to target at least 20% savings going forward to build a stronger buffer.'}
-            </p>
-          </div>
+              <div className="border-l-4 border-green-400 bg-green-50/40 rounded-r-lg p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Lightbulb size={16} className="text-green-500" />
+                  <p className="text-sm font-bold text-gray-900">
+                    {decreasedCategory ? 'Positive Trend' : 'Steady Category'}
+                  </p>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  {decreasedCategory ? (
+                    <>
+                      <span className="font-semibold">{decreasedCategory.category}</span> spending decreased by{' '}
+                      <span className="font-semibold">{Math.abs(decreasedCategory.change)}%</span> compared to last month.
+                      Great job keeping it under control.
+                    </>
+                  ) : flatCategory ? (
+                    <>
+                      Every category rose this month, but <span className="font-semibold">{flatCategory.category}</span>{' '}
+                      held exactly steady at {formatINR(flatCategory.current)} — no increase there at least.
+                    </>
+                  ) : (
+                    <>All categories increased this month — worth reviewing your budget across the board.</>
+                  )}
+                </p>
+              </div>
+
+              <div className="border-l-4 border-blue-400 bg-blue-50/40 rounded-r-lg p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <PiggyBank size={16} className="text-blue-500" />
+                  <p className="text-sm font-bold text-gray-900">Savings Rate</p>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  You saved <span className="font-semibold">{savingsRate}%</span> of your income this month.{' '}
+                  {savingsRate >= 20
+                    ? "That's a healthy savings habit — keep it up."
+                    : 'Try to target at least 20% savings going forward to build a stronger buffer.'}
+                </p>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

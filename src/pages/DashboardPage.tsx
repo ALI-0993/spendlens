@@ -16,9 +16,11 @@ const DashboardPage = () => {
     {
       title: "Total Spent",
       value: formatINR(stats.totalSpent),
-      subtitle: `${stats.spentChange >= 0 ? "+" : ""}${stats.spentChange}% from last month`,
+      subtitle: "",
       change: stats.spentChange,
+      previousMonthLabel: stats.previousMonthLabel,
       hasPreviousMonthData: stats.hasPreviousMonthData,
+      positiveIsGood: false, // spending MORE is a bad thing
       icon: CreditCard,
       iconBg: "#FEE2E2",
       accentColor: "#EF4444",
@@ -26,9 +28,11 @@ const DashboardPage = () => {
     {
       title: "Income",
       value: formatINR(stats.totalIncome),
-      subtitle: `${stats.incomeChange >= 0 ? "+" : ""}${stats.incomeChange}% from last month`,
+      subtitle: "",
       change: stats.incomeChange,
+      previousMonthLabel: stats.previousMonthLabel,
       hasPreviousMonthData: stats.hasPreviousMonthData,
+      positiveIsGood: true, // earning MORE is a good thing
       icon: Wallet,
       iconBg: "#DCFCE7",
       accentColor: "#16A34A",
@@ -36,9 +40,11 @@ const DashboardPage = () => {
     {
       title: "Saved",
       value: formatINR(stats.totalSaved),
-      subtitle: `${stats.savedChange >= 0 ? "+" : ""}${stats.savedChange}% from last month`,
-      change: stats.savedChange,
+      subtitle: "",
+      differenceAmount: stats.savedDifference,
+      previousMonthLabel: stats.previousMonthLabel,
       hasPreviousMonthData: stats.hasPreviousMonthData,
+      positiveIsGood: true, // saving MORE is a good thing
       icon: PiggyBank,
       iconBg: "#DBEAFE",
       accentColor: "#2563EB",

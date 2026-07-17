@@ -1,8 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { type Transaction } from '../types';
-import { detectCategory } from './categorize';
+import { detectCategoryMatched } from './categorize';
 import { looksLikeGooglePayStatement, parseGooglePayFile } from './parseGooglePay';
+import { applyAICategorization } from './parseCSV';
 
 // pdf.js does its parsing work in a background worker thread, and needs
 // to be told where to load that worker script from. Vite's `?url` import
@@ -104,6 +105,7 @@ const parseBankOfBarodaFile = async (file: File): Promise<ParseResult> => {
   const doc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
   const transactions: Transaction[] = [];
+  const unmatchedIndices: number[] = [];
   let skippedCount = 0;
 
   for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
@@ -187,7 +189,7 @@ const parseBankOfBarodaFile = async (file: File): Promise<ParseResult> => {
       }
 
       const merchant = extractMerchant(rawDescription);
-      const category = detectCategory(merchant, type);
+      const { category, matched } = detectCategoryMatched(merchant, type);
 
       transactions.push({
         id: crypto.randomUUID(),
@@ -198,7 +200,12 @@ const parseBankOfBarodaFile = async (file: File): Promise<ParseResult> => {
         category,
         merchant,
       });
+      if (!matched) unmatchedIndices.push(transactions.length - 1);
     });
+  }
+
+  if (unmatchedIndices.length > 0) {
+    await applyAICategorization(transactions, unmatchedIndices);
   }
 
   return { transactions, skippedCount };

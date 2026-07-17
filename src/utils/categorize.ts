@@ -37,16 +37,28 @@ const KEYWORD_INDEX = buildKeywordIndex();
 // Falls back to 'Income' if type is credit (since most income sources
 // won't be in the merchant map), or 'Others' for unrecognized debits.
 export const detectCategory = (merchant: string, type: 'debit' | 'credit'): string => {
+  return detectCategoryMatched(merchant, type).category;
+};
+
+// Same lookup as detectCategory, but also reports whether this was a real
+// keyword match or just the generic fallback guess. AddTransactionPanel
+// uses `matched` to decide whether it's worth calling the AI at all —
+// no point spending an API call re-guessing something the rules already
+// know for certain (e.g. "zomato" -> Food & Dining, instantly, for free).
+export const detectCategoryMatched = (
+  merchant: string,
+  type: 'debit' | 'credit'
+): { category: string; matched: boolean } => {
   const lower = merchant.toLowerCase();
   const matchedKeyword = Object.keys(KEYWORD_INDEX).find((keyword) => lower.includes(keyword));
-  if (matchedKeyword) return KEYWORD_INDEX[matchedKeyword];
+  if (matchedKeyword) return { category: KEYWORD_INDEX[matchedKeyword], matched: true };
   // An unrecognized credit is more often a P2P repayment or refund than
   // confirmed income (e.g. a friend paying back ₹2,000 via UPI shows up
   // identically to a real income deposit unless the source is a known
   // employer/client keyword). Defaulting to 'Transfers' is the more
   // honest guess — it doesn't inflate income with money that was never
   // really earned.
-  return type === 'credit' ? 'Transfers' : 'Others';
+  return { category: type === 'credit' ? 'Transfers' : 'Others', matched: false };
 };
 
 // Single source of truth for category colors, used by RecentTransactions,
