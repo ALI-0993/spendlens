@@ -76,6 +76,15 @@ const InsightsPage = () => {
   const months = [...recentMonths].reverse();
   const { trendData, average, highest, lowest } = getMonthlyTrend(transactions, months);
 
+  // getMonthlyTrend types highest/lowest as possibly null (empty-array
+  // safety), but we already guarantee at least 2 months of data above
+  // via the recentMonths.length < 2 early return — so if these are ever
+  // actually null here, something upstream broke. Bail out safely
+  // instead of crashing on highest.label below.
+  if (!highest || !lowest) {
+    return null;
+  }
+
   // Biggest MoM jump in TOTAL spending, across the whole trend range
   // (not per-category — this is month-to-month overall spend).
   // Calculated here, early, since both Section 1's stat cards AND

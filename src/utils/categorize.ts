@@ -1,9 +1,11 @@
+import type { Category } from '../types';
+
 // Keyword → category lookup, organized by category so it's easy to scan
 // and extend. Each category lists the lowercase substrings that should
 // match it. Checked with .includes(), so partial typing or longer real
 // merchant strings (e.g. a UPI handle like "playstore@axisbank") still
 // match correctly.
-export const CATEGORY_KEYWORDS: Record<string, string[]> = {
+export const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   'Food & Dining': ['zomato', 'swiggy', 'blinkit', 'dmart'],
   'Shopping': ['amazon', 'myntra'],
   'Transport': ['ola', 'uber', 'rapido', 'ixigo'],
@@ -21,9 +23,9 @@ export const CATEGORY_KEYWORDS: Record<string, string[]> = {
 
 // Flips CATEGORY_KEYWORDS into a single keyword -> category map for fast
 // lookup, built once when this module loads rather than on every call.
-const buildKeywordIndex = (): Record<string, string> => {
-  const index: Record<string, string> = {};
-  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+const buildKeywordIndex = (): Record<string, Category> => {
+  const index: Record<string, Category> = {};
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS) as [Category, string[]][]) {
     for (const keyword of keywords) {
       index[keyword] = category;
     }
@@ -36,7 +38,7 @@ const KEYWORD_INDEX = buildKeywordIndex();
 // Looks at the merchant name and returns the best-guess category.
 // Falls back to 'Income' if type is credit (since most income sources
 // won't be in the merchant map), or 'Others' for unrecognized debits.
-export const detectCategory = (merchant: string, type: 'debit' | 'credit'): string => {
+export const detectCategory = (merchant: string, type: 'debit' | 'credit'): Category => {
   return detectCategoryMatched(merchant, type).category;
 };
 
@@ -48,7 +50,7 @@ export const detectCategory = (merchant: string, type: 'debit' | 'credit'): stri
 export const detectCategoryMatched = (
   merchant: string,
   type: 'debit' | 'credit'
-): { category: string; matched: boolean } => {
+): { category: Category; matched: boolean } => {
   const lower = merchant.toLowerCase();
   const matchedKeyword = Object.keys(KEYWORD_INDEX).find((keyword) => lower.includes(keyword));
   if (matchedKeyword) return { category: KEYWORD_INDEX[matchedKeyword], matched: true };

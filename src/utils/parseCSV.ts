@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import { type Transaction } from '../types';
+import { type Transaction, type Category } from '../types';
 import { detectCategoryMatched } from './categorize';
 
 // One raw row, as Papa Parse gives it to us — every value is a string,
@@ -130,8 +130,8 @@ const buildTransactionFromRow = (row: RawRow): { transaction: Transaction; match
 // a merchant|type -> category map for whatever it successfully answered.
 const categorizeChunk = async (
   chunk: { merchant: string; type: 'debit' | 'credit' }[]
-): Promise<Map<string, string>> => {
-  const resultMap = new Map<string, string>();
+): Promise<Map<string, Category>> => {
+  const resultMap = new Map<string, Category>();
   const itemsWithIds = chunk.map((item, i) => ({ id: i, ...item }));
 
   try {
@@ -183,7 +183,7 @@ export const applyAICategorization = async (
   }
 
   const chunkResults = await Promise.all(chunks.map(categorizeChunk));
-  const resultMap = new Map<string, string>();
+  const resultMap = new Map<string, Category>();
   for (const map of chunkResults) {
     for (const [key, category] of map) resultMap.set(key, category);
   }

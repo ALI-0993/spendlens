@@ -79,9 +79,9 @@ const CategoryChart = () => {
                 strokeWidth={0}
                 onMouseEnter={(entry) =>
                   setTooltip({
-                    name: entry.name,
+                    name: entry.name || 'Others',
                     value: entry.value,
-                    color: CATEGORY_COLORS[entry.name] || '#6b7280',
+                    color: CATEGORY_COLORS[entry.name || 'Others'] || '#6b7280',
                   })
                 }
                 onMouseLeave={() => setTooltip(null)}

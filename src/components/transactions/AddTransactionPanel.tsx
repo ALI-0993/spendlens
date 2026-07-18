@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { detectCategoryMatched, CATEGORY_COLORS } from '../../utils/categorize';
 import { useTransactionStore } from '../../store/transactionStore';
-import { type Transaction } from '../../types';
+import { type Transaction, type Category } from '../../types';
 
 
 
@@ -55,7 +55,7 @@ const addTransaction = useTransactionStore((state) => state.addTransaction);
   // AI category, only ever populated when the rule-based match above was
   // a genuine guess (matched: false) — no point spending an API call
   // re-confirming something the keyword list already knows for certain.
-  const [aiCategory, setAiCategory] = useState<string | null>(null);
+  const [aiCategory, setAiCategory] = useState<Category | null>(null);
   const [aiCategoryLoading, setAiCategoryLoading] = useState(false);
 
   useEffect(() => {
