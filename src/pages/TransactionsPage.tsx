@@ -181,9 +181,9 @@ const TransactionsPage = () => {
       </div>
 
       {/* Filter bar */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 px-5 py-4 mb-4 flex items-center gap-3">
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 px-5 py-4 mb-4 flex flex-wrap items-center gap-3">
         {/* Search — given flex-1 so it takes up the most space, per the design */}
-        <div className="relative flex-1 max-w-md">
+        <div className="relative flex-1 min-w-[160px] max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
@@ -254,9 +254,9 @@ const TransactionsPage = () => {
       </div>
 
       {/* Table card */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-200">
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-x-auto">
         {/* Table header row */}
-        <div className="grid grid-cols-5 px-5 py-3 border-b border-gray-100">
+        <div className="grid grid-cols-5 px-5 py-3 border-b border-gray-100 min-w-[640px]">
           <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Merchant</span>
           <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Category</span>
           <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</span>
@@ -275,7 +275,7 @@ const TransactionsPage = () => {
               key={txn.id}
               data-txn-row
               onClick={() => setOpenMenuId((prev) => (prev === txn.id ? null : txn.id))}
-              className="relative grid grid-cols-5 px-5 py-3.5 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
+              className="relative grid grid-cols-5 px-5 py-3.5 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors min-w-[640px]"
             >
               {/* Merchant */}
               <div className="flex items-center gap-3">
