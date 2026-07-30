@@ -73,18 +73,18 @@ const DashboardPage = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((card) => (
           <SummaryCard key={card.title} {...card} />
         ))}
       </div>
       {/* Charts Row */}
-      <div className="grid grid-cols-2 gap-4 mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
         <CashFlowChart />
         <CategoryChart />
       </div>
-      <div className="grid grid-cols-3 gap-4 mt-6 items-stretch">
-        <div className="col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6 items-stretch">
+        <div className="lg:col-span-2">
           <RecentTransactions />
         </div>
         <AIInsights />

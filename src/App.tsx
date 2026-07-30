@@ -4,8 +4,16 @@ import DashboardPage from './pages/DashboardPage';
 import TransactionsPage from './pages/TransactionsPage';
 import InsightsPage from './pages/InsightsPage';
 import UploadPage from './pages/UploadPage';
+import { useIsMobile } from './hooks/useIsMobile';
+import MobileBlocker from './components/MobileBlocker';
 
 const App = () => {
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return <MobileBlocker />;
+  }
+
   return (
     <BrowserRouter>
       <Routes>
